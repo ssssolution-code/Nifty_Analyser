@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nifty50 Stock Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #1e3c72;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .header-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn-analyze {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-analyze:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(30, 60, 114, 0.4);
+        }
+        
+        .btn-analyze:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .legend-dot.buy { background: #28a745; }
+        .legend-dot.strong { background: #17a2b8; }
+        .legend-dot.above { background: #ffc107; }
+        .legend-dot.hold { background: #6c757d; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card .label {
+            color: #666;
+            font-size: 13px;
+            display: block;
+        }
+        
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .stat-card .value.buy { color: #28a745; }
+        .stat-card .value.strong { color: #17a2b8; }
+        .stat-card .value.above { color: #ffc107; }
+        .stat-card .value.hold { color: #6c757d; }
+        .stat-card .value.error { color: #dc3545; }
+        
+        .table-container {
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        
+        th {
+            background: #f8f9fa;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        tr.buy-row {
+            background: #d4edda;
+        }
+        
+        tr.buy-row:hover {
+            background: #c3e6cb;
+        }
+        
+        .signal-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 10px;
+            white-space: nowrap;
+        }
+        
+        .signal-buy { background: #28a745; color: white; }
+        .signal-strong { background: #17a2b8; color: white; }
+        .signal-above { background: #ffc107; color: #333; }
+        .signal-hold { background: #6c757d; color: white; }
+        .signal-error { background: #dc3545; color: white; }
+        .signal-insufficient { background: #fd7e14; color: white; }
+        
+        .ma-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        
+        .ma-above { background: #28a745; }
+        .ma-below { background: #dc3545; }
+        
+        .trend-up { color: #28a745; }
+        .trend-down { color: #dc3545; }
+        
+        .cum-avg-cell {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+        }
+        
+        .cum-avg-value {
+            display: inline-block;
+            padding: 1px 4px;
+            margin: 1px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+        
+        .cum-avg-high {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .cum-avg-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1e3c72;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .last-updated {
+            color: #666;
+            font-size: 13px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 300px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            padding: 10px;
+            border-radius: 6px;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -150px;
+            font-size: 11px;
+            font-weight: normal;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            td, th {
+                padding: 5px 4px;
+                font-size: 10px;
+            }
+            
+            .signal-badge {
+                font-size: 9px;
+                padding: 2px 6px;
+            }
+            
+            .legend {
+                font-size: 10px;
+                gap: 8px;
+            }
+            
+            .stat-card .value {
+                font-size: 20px;
+            }
+            
+            .cum-avg-cell {
+                font-size: 9px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Nifty50 Stock Analyzer</h1>
+        <p class="subtitle">
+            Enhanced analysis with 50/100/200-day moving averages • Shows cumulative average trend
+        </p>
+        
+        <div class="header-controls">
+            <button class="btn-analyze" id="analyzeBtn" onclick="analyzeStocks()">
+                🔍 Analyze All Stocks
+            </button>
+            <span style="color: #666; font-size: 14px;">
+                <span id="stockCount">50</span> stocks in Nifty50
+            </span>
+        </div>
+        
+        <div class="legend">
+            <span class="legend-item">
+                <span class="legend-dot buy"></span> Buy (Strong Trend + Above All MAs)
+            </span>
+            <span class="legend-item">
+                <span class="legend-dot strong"></span> Strong Trend (Wait for Breakout)
+            </span>
+            <span class="legend-item">
+                <span class="legend-dot above"></span> Above All MAs (Check Trend)
+            </span>
+            <span class="legend-item">
+                <span class="legend-dot hold"></span> Avoid/Hold
+            </span>
+            <span class="legend-item" style="font-size: 11px; color: #666;">
+                ⬆ = Increasing • ⬇ = Decreasing
+            </span>
+        </div>
+        
+        <div class="loading" id="loadingDiv">
+            <div class="spinner"></div>
+            <p>Analyzing stocks... Please wait (this may take 1-2 minutes)</p>
+        </div>
+        
+        <div id="results">
+            <div class="stats" id="statsDiv" style="display: none;"></div>
+            <div class="table-container" id="tableDiv" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Symbol</th>
+                            <th>Signal</th>
+                            <th>Price (₹)</th>
+                            <th>50 MA</th>
+                            <th>100 MA</th>
+                            <th>200 MA</th>
+                            <th>Above MAs</th>
+                            <th>Trend</th>
+                            <th>Cumulative Averages (Last 10)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="last-updated" id="lastUpdated"></div>
+    </div>
+    
+    <script>
+        async function analyzeStocks() {
+            const btn = document.getElementById('analyzeBtn');
+            const loadingDiv = document.getElementById('loadingDiv');
+            const statsDiv = document.getElementById('statsDiv');
+            const tableDiv = document.getElementById('tableDiv');
+            const resultsBody = document.getElementById('resultsBody');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Analyzing...';
+            loadingDiv.classList.add('active');
+            statsDiv.style.display = 'none';
+            tableDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data.results);
+                    updateStats(data.results);
+                    
+                    statsDiv.style.display = 'grid';
+                    tableDiv.style.display = 'block';
+                    document.getElementById('lastUpdated').textContent = 
+                        `Last updated: ${new Date().toLocaleString()}`;
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Re-analyze All Stocks';
+                loadingDiv.classList.remove('active');
+            }
+        }
+        
+        function updateStats(results) {
+            const statsDiv = document.getElementById('statsDiv');
+            
+            const buyCount = results.filter(r => r.signal === 'Buy/Average Out').length;
+            const strongCount = results.filter(r => r.signal === 'Strong Trend (Wait for MA Breakout)').length;
+            const aboveCount = results.filter(r => r.signal === 'Price Above All MAs (Check Trend)').length;
+            const holdCount = results.filter(r => r.signal === 'Avoid/Hold').length;
+            const errorCount = results.filter(r => r.signal === 'Error' || r.signal === 'Insufficient Data').length;
+            
+            statsDiv.innerHTML = `
+                <div class="stat-card">
+                    <span class="label">Total Analyzed</span>
+                    <span class="value">${results.length}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="label">Buy Signals</span>
+                    <span class="value buy">${buyCount}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="label">Strong Trend</span>
+                    <span class="value strong">${strongCount}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="label">Above All MAs</span>
+                    <span class="value above">${aboveCount}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="label">Avoid/Hold</span>
+                    <span class="value hold">${holdCount}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="label">No Data/Error</span>
+                    <span class="value error">${errorCount}</span>
+                </div>
+            `;
+        }
+        
+        function displayResults(results) {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            
+            if (results.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="no-data">No data available</td></tr>';
+                return;
+            }
+            
+            results.forEach((result, index) => {
+                const row = document.createElement('tr');
+                
+                // Highlight buy rows
+                if (result.signal === 'Buy/Average Out') {
+                    row.className = 'buy-row';
+                }
+                
+                // Signal badge class
+                let badgeClass = 'signal-hold';
+                if (result.signal === 'Buy/Average Out') badgeClass = 'signal-buy';
+                else if (result.signal === 'Strong Trend (Wait for MA Breakout)') badgeClass = 'signal-strong';
+                else if (result.signal === 'Price Above All MAs (Check Trend)') badgeClass = 'signal-above';
+                else if (result.signal === 'Insufficient Data') badgeClass = 'signal-insufficient';
+                else if (result.signal === 'Error') badgeClass = 'signal-error';
+                
+                // Format price
+                const formatPrice = (price) => price !== null && price !== undefined ? `₹${price.toFixed(2)}` : 'N/A';
+                const formatPct = (pct) => pct !== null && pct !== undefined ? `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%` : 'N/A';
+                
+                // MA indicators
+                const ma50Status = result.above_ma_50 ? 
+                    '<span class="ma-indicator ma-above"></span>' : 
+                    '<span class="ma-indicator ma-below"></span>';
+                const ma100Status = result.above_ma_100 ? 
+                    '<span class="ma-indicator ma-above"></span>' : 
+                    '<span class="ma-indicator ma-below"></span>';
+                const ma200Status = result.above_ma_200 ? 
+                    '<span class="ma-indicator ma-above"></span>' : 
+                    '<span class="ma-indicator ma-below"></span>';
+                
+                // Cumulative averages display
+                let cumAvgHtml = 'N/A';
+                if (result.cum_avg_last_10 && result.cum_avg_last_10.length === 10) {
+                    const values = result.cum_avg_last_10;
+                    cumAvgHtml = values.map((v, idx) => {
+                        const isIncreasing = idx > 0 && v > values[idx-1];
+                        const colorClass = isIncreasing ? 'cum-avg-high' : 'cum-avg-low';
+                        const arrow = isIncreasing ? '↑' : '↓';
+                        return `<span class="cum-avg-value ${colorClass}" title="Day ${idx+1}: ₹${v.toFixed(2)}">${arrow}${v.toFixed(1)}</span>`;
+                    }).join(' ');
+                }
+                
+                // Trend display
+                let trendDisplay = 'N/A';
+                if (result.cum_avg_trend) {
+                    const count = result.increasing_count || 0;
+                    const color = count >= 7 ? 'trend-up' : (count >= 4 ? '' : 'trend-down');
+                    trendDisplay = `<span class="${color}">${result.cum_avg_trend}</span>`;
+                }
+                
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td><strong>${result.symbol}</strong></td>
+                    <td><span class="signal-badge ${badgeClass}">${result.signal}</span></td>
+                    <td><strong>${formatPrice(result.current_price)}</strong></td>
+                    <td>
+                        ${formatPrice(result.ma_50)}
+                        ${result.pct_above_ma_50 !== null ? `<br><small>${formatPct(result.pct_above_ma_50)}</small>` : ''}
+                    </td>
+                    <td>
+                        ${formatPrice(result.ma_100)}
+                        ${result.pct_above_ma_100 !== null ? `<br><small>${formatPct(result.pct_above_ma_100)}</small>` : ''}
+                    </td>
+                    <td>
+                        ${formatPrice(result.ma_200)}
+                        ${result.pct_above_ma_200 !== null ? `<br><small>${formatPct(result.pct_above_ma_200)}</small>` : ''}
+                    </td>
+                    <td style="font-size: 11px;">
+                        ${ma50Status} 50<br>
+                        ${ma100Status} 100<br>
+                        ${ma200Status} 200
+                    </td>
+                    <td style="font-size: 11px;">${trendDisplay}</td>
+                    <td class="cum-avg-cell" style="min-width: 250px;">
+                        <div style="display: flex; flex-wrap: wrap; gap: 2px;">
+                            ${cumAvgHtml}
+                        </div>
+                        <div style="font-size: 9px; color: #666; margin-top: 3px;">
+                            <span class="cum-avg-value cum-avg-high">↑</span> Increasing 
+                            <span class="cum-avg-value cum-avg-low">↓</span> Decreasing
+                        </div>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Auto-analyze on page load
+        window.addEventListener('load', () => {
+            setTimeout(analyzeStocks, 1000);
+        });
+    </script>
+</body>
+</html>
